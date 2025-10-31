@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparador de Produtos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="rules">Regras: 1º = 10 pts • 2º = 5 pts • 3º = 3 pts • 0 = não possui</div>
+            <div class="products-header">
+                <div class="product-title" id="product-a">
+                    <input type="text" value="Produto 1" class="product-name-input" data-index="0">
+                    <div class="score" id="score-a">0 pts</div>
+                </div>
+                <div class="product-title" id="product-b">
+                    <input type="text" value="Produto 2" class="product-name-input" data-index="1">
+                    <div class="score" id="score-b">0 pts</div>
+                </div>
+                <div class="product-title" id="product-c">
+                    <input type="text" value="Produto 3" class="product-name-input" data-index="2">
+                    <div class="score" id="score-c">0 pts</div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="winner-section">
+                <h2>VENCEDORA</h2>
+                <div id="winner-name">---</div>
+            </div>
+
+            <div class="actions">
+                <button id="download-pdf-btn">Baixar PDF</button>
+                <button id="clear-notes-btn">Limpar notas</button>
+            </div>
+
+            <div class="comparison-grid" id="comparison-grid">
+                <div class="grid-header">
+                    <div class="criteria-label">CRITÉRIOS</div>
+            <!--Mudança aqui-->
+                    <div class="criteria-label" id="name-a">product-a</div>
+                    <div class="criteria-label" id="name-b">product-b</div>                
+                    <div class="criteria-label" id="name-c">product-c</div>
+            <!--Mudança aqui-->
+                </div>        
+            </div>
+            <!-- Linhas de Critérios serão inseridas aqui pelo JS -->
+            <button id="add-criteria-btn">+ Adicionar Critério</button>
+        </main>
+    </div>
+
+    <!-- Template para nova linha de critério -->
+    <template id="criteria-row-template">
+        <div class="criteria-row">
+            <div class="criteria-name-wrapper">
+                <input type="text" class="criteria-name-input" placeholder="Digite o nome do critério">
+                <button class="remove-criteria-btn">X</button>
+            </div>
+            <div class="product-options">
+                <select class="option-select" data-product-index="0">
+                    <option value="Selecione..." disabled selected>Selecione...</option>
+                    {% for opcao in opcoes %}
+                    <option value="{{ opcao }}">{{ opcao }}</option>
+                    {% endfor %}
+                </select>
+                <div class="points">Pontos: 0</div>
+            </div>
+            <div class="product-options">
+                <select class="option-select" data-product-index="1">
+                    <option value="Selecione..." disabled selected>Selecione...</option>
+                    {% for opcao in opcoes %}
+                    <option value="{{ opcao }}">{{ opcao }}</option>
+                    {% endfor %}
+                </select>
+                <div class="points">Pontos: 0</div>
+            </div>
+            <div class="product-options">
+                <select class="option-select" data-product-index="2">
+                    <option value="Selecione..." disabled selected>Selecione...</option>
+                    {% for opcao in opcoes %}
+                    <option value="{{ opcao }}">{{ opcao }}</option>
+                    {% endfor %}
+                </select>
+                <div class="points">Pontos: 0</div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const comparisonGrid = document.getElementById('comparison-grid');
+            const criteriaRowTemplate = document.getElementById('criteria-row-template');
+            const addCriteriaBtn = document.getElementById('add-criteria-btn');
+            const downloadPdfBtn = document.getElementById('download-pdf-btn');
+            const clearNotesBtn = document.getElementById('clear-notes-btn');
+
+            const PONTOS = {
+                "Excelente": 10,
+                "Bom": 5,
+                "Regular": 3,
+                "Não possui": 0,
+                "Selecione...": 0
+            };
+
+            const addInitialCriteria = () => {
+                addCriteriaRow("Preço e condições");
+                addCriteriaRow("IA para texto e funcionalidades");
+                addCriteriaRow("Outros modelos de IA e ferramentas...");
+            };
+
+            const addCriteriaRow = (name = "") => {
+                const newRow = criteriaRowTemplate.content.cloneNode(true);
+                const criteriaRowDiv = newRow.querySelector('.criteria-row');
+                const criteriaInput = newRow.querySelector('.criteria-name-input');
+                if (name) criteriaInput.value = name;
+
+                const removeBtn = newRow.querySelector('.remove-criteria-btn');
+                removeBtn.addEventListener('click', (e) => {
+                    e.target.closest('.criteria-row').remove();
+                    updateScores();
+                });
+
+                criteriaRowDiv.querySelectorAll('.option-select').forEach(select => {
+                    select.addEventListener('change', () => updateScores());
+                });
+                
+                criteriaInput.addEventListener('input', updateScores);
+
+                comparisonGrid.appendChild(criteriaRowDiv);
+            };
+
+            const updateScores = () => {
+                let scores = [0, 0, 0];
+                const productNames = Array.from(document.querySelectorAll('.product-name-input')).map(input => input.value);
+                const scoreDivs = [
+                    document.getElementById('score-a'),
+                    document.getElementById('score-b'),
+                    document.getElementById('score-c')
+                ];
+
+                document.querySelectorAll('.criteria-row').forEach(row => {
+                    row.querySelectorAll('.product-options').forEach((option, index) => {
+                        const select = option.querySelector('.option-select');
+                        const pointsDiv = option.querySelector('.points');
+                        const selectedValue = select.value;
+                        const points = PONTOS[selectedValue] || 0;
+                        scores[index] += points;
+                        pointsDiv.textContent = `Pontos: ${points}`;
+                    });
+                });
+
+                scores.forEach((score, index) => {
+                    scoreDivs[index].textContent = `${score} pts`;
+                });
+
+                updateWinner(scores, productNames);
+            };
+
+            const updateWinner = (scores, productNames) => {
+                const maxScore = Math.max(...scores);
+                const winnerNameDiv = document.getElementById('winner-name');
+                
+                if (maxScore === 0) {
+                    winnerNameDiv.textContent = '---';
+                    return;
+                }
+
+                const winners = [];
+                scores.forEach((score, index) => {
+                    if (score === maxScore) {
+                        winners.push(productNames[index]);
+                    }
+                });
+
+                winnerNameDiv.textContent = winners.join(' & ');
+            };
+
+            const clearNotes = () => {
+                document.querySelectorAll('.option-select').forEach(select => {
+                    select.selectedIndex = 0;
+                });
+                updateScores();
+            };
+
+            const downloadPdf = async () => {
+                const productNames = Array.from(document.querySelectorAll('.product-name-input')).map(input => input.value);
+                const criteriaData = [];
+
+                document.querySelectorAll('.criteria-row').forEach(row => {
+                    const criteriaName = row.querySelector('.criteria-name-input').value;
+                    if (!criteriaName.trim()) return;
+
+                    const pontuacoes = Array.from(row.querySelectorAll('.option-select')).map(select => select.value);
+                    
+                    criteriaData.push({ nome: criteriaName, pontuacoes: pontuacoes });
+                });
+
+                if (criteriaData.length === 0) {
+                    alert("Adicione pelo menos um critério para gerar o PDF.");
+                    return;
+                }
+
+                downloadPdfBtn.textContent = "Gerando...";
+                downloadPdfBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/gerar_pdf', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ produtos: productNames, criterios: criteriaData }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Erro desconhecido no servidor');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'comparativo_produtos.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                } catch (error) {
+                    console.error('Erro ao gerar PDF:', error);
+                    alert(`Falha ao gerar o PDF: ${error.message}`);
+                } finally {
+                    downloadPdfBtn.textContent = "Baixar PDF";
+                    downloadPdfBtn.disabled = false;
+                }
+            };
+
+            addCriteriaBtn.addEventListener('click', () => addCriteriaRow());
+            clearNotesBtn.addEventListener('click', clearNotes);
+            downloadPdfBtn.addEventListener('click', downloadPdf);
+            document.querySelectorAll('.product-name-input').forEach(input => {
+                input.addEventListener('input', updateScores);
+            });
+
+            addInitialCriteria();
+            updateScores();
+        });
+    </script>
+</body>
+</html>
